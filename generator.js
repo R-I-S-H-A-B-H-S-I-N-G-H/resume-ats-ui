@@ -3,7 +3,7 @@
  * RESUME GENERATOR ENGINE
  * =================================================================
  */
-class ResumeGenerator {
+export class ResumeGenerator {
 	constructor(config) {
 		this.config = config;
 		this.theme = config.themes[config.theme];
@@ -193,6 +193,16 @@ class ResumeGenerator {
 				this.y += lines.length * this.theme.fonts.sizes.body + 4;
 			});
 		});
+	}
+
+	getBlob() {
+		this._build();
+		return this.doc.output("blob");
+	}
+
+	getArrayBuffer() {
+		this._build();
+		return this.doc.output("arraybuffer");
 	}
 
 	_renderEducation(section) {

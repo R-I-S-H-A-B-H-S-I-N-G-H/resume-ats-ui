@@ -3,86 +3,141 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Config-Driven Resume Generator with Preview</title>
+  <title>Interactive Resume Editor & Full Preview</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-</head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen">
-  <div class="text-center bg-white p-8 sm:p-12 rounded-xl shadow-lg max-w-lg mx-4">
-    <h1 class="text-3xl sm:text-4xl font-bold text-gray-800 mb-2">Dynamic Resume Generator</h1>
-    <p class="text-gray-600 mb-6">
-      Customize your resume in <code class="bg-gray-200 text-teal-800 px-2 py-1 rounded">config.js</code>, then click below to see a live preview.
-    </p>
-    <button id="preview-button" onclick="showPreview()" class="bg-teal-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-teal-700 focus:outline-none focus:ring-4 focus:ring-teal-300 transition-all duration-300 shadow-md hover:shadow-lg">
-      Preview & Download
-    </button>
-  </div>
 
-  <div id="preview-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 p-4">
-    <div class="bg-white rounded-lg shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col">
-      <div class="flex justify-between items-center p-4 border-b">
-        <h2 class="text-xl font-bold text-gray-800">Resume Preview</h2>
-        <button onclick="hidePreview()" class="text-gray-500 hover:text-gray-800 text-3xl leading-none">&times;</button>
+  <script src="https://mozilla.github.io/pdf.js/build/pdf.mjs" type="module"></script>
+  
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/theme/material-darker.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/mode/javascript/javascript.min.js"></script>
+  
+  <style>
+    .CodeMirror { height: 100%; font-size: 14px; }
+  </style>
+</head>
+<body class="bg-gray-200 h-screen flex flex-col">
+
+  <header class="bg-white shadow-md p-3 flex justify-between items-center z-10">
+    <h1 class="text-xl font-bold text-gray-800">Interactive Resume Editor</h1>
+    <button id="download-btn" class="bg-teal-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-teal-700 transition-all">Download PDF</button>
+  </header>
+
+  <main class="flex-grow grid grid-cols-1 md:grid-cols-2 gap-4 p-4 overflow-hidden">
+    
+    <div class="flex flex-col bg-white shadow-lg rounded-lg overflow-hidden">
+      <div class="p-3 bg-gray-100 border-b">
+        <h2 class="font-semibold text-gray-700">Configuration (`config.js`)</h2>
       </div>
-      <div class="flex-grow p-4 bg-gray-200">
-        <iframe id="pdf-preview-frame" class="w-full h-full border-none" title="Resume Preview"></iframe>
-      </div>
-      <div class="flex justify-end items-center p-4 border-t">
-        <button onclick="hidePreview()" class="bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-lg hover:bg-gray-400 mr-4">
-          Close
-        </button>
-        <button onclick="downloadPDF()" class="bg-teal-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-teal-700">
-          Download PDF
-        </button>
+      <div id="editor-container" class="flex-grow relative">
+        <div id="error-message" class="hidden absolute bottom-0 left-0 right-0 bg-red-500 text-white p-2 text-sm z-20"></div>
       </div>
     </div>
-  </div>
 
-  <script src="config.js"></script>
-  <script src="generator.js"></script>
-  
-  <script>
-    let resumeGeneratorInstance = null; // To hold the generator instance
+    <div class="flex flex-col bg-white shadow-lg rounded-lg overflow-hidden">
+      <div class="p-3 bg-gray-100 border-b">
+        <h2 class="font-semibold text-gray-700">Live Preview</h2>
+      </div>
+      <div id="preview-container" class="flex-grow p-6 bg-gray-400 flex flex-col items-center overflow-y-auto">
+        </div>
+    </div>
+  </main>
 
-    const modal = document.getElementById('preview-modal');
-    const iframe = document.getElementById('pdf-preview-frame');
-    const previewButton = document.getElementById('preview-button');
+  <script type="module">
+    // Import from config and generator files
+    import { resumeConfig } from './config.js';
+    import { ResumeGenerator } from './generator.js';
 
-    // Function to generate the preview and show the modal
-    async function showPreview() {
-      previewButton.disabled = true;
-      previewButton.textContent = 'Generating...';
+    let editor;
+    let resumeGeneratorInstance = null;
+    const errorMessageDiv = document.getElementById('error-message');
+    const { pdfjsLib } = globalThis;
 
-      // Create a new generator instance
-      resumeGeneratorInstance = new ResumeGenerator(resumeConfig);
-      
-      // Get the PDF as a Data URI string
-      const pdfDataUri = resumeGeneratorInstance.getPreviewData();
-      
-      // Set the iframe source to the PDF data
-      iframe.src = pdfDataUri;
-      
-      // Show the modal
-      modal.classList.remove('hidden');
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `//mozilla.github.io/pdf.js/build/pdf.worker.mjs`;
 
-      previewButton.disabled = false;
-      previewButton.textContent = 'Preview & Download';
+    function debounce(func, delay) {
+      let timeout;
+      return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), delay);
+      };
     }
 
-    // Function to hide the modal
-    function hidePreview() {
-      modal.classList.add('hidden');
-      iframe.src = 'about:blank'; // Clear the iframe
+    // This is the new rendering logic that handles multiple pages
+    async function renderAllPages(arrayBuffer) {
+        const previewContainer = document.getElementById('preview-container');
+        previewContainer.innerHTML = ''; // Clear any previous canvases
+
+        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+        const pdf = await loadingTask.promise;
+
+        // Determine the scale based on the container width
+        const pageForScaling = await pdf.getPage(1);
+        const viewportForScaling = pageForScaling.getViewport({ scale: 1.0 });
+        const scale = (previewContainer.clientWidth - 48) / viewportForScaling.width; // 48px for padding
+
+        // Loop through all pages
+        for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+            const page = await pdf.getPage(pageNum);
+            const scaledViewport = page.getViewport({ scale: scale });
+
+            // Create a canvas for the current page
+            const canvas = document.createElement('canvas');
+            canvas.className = 'shadow-xl mb-6'; // Add margin between pages
+            const context = canvas.getContext('2d');
+            canvas.height = scaledViewport.height;
+            canvas.width = scaledViewport.width;
+
+            // Append the new canvas to our container
+            previewContainer.appendChild(canvas);
+
+            // Render the PDF page into the canvas context
+            const renderContext = {
+                canvasContext: context,
+                viewport: scaledViewport,
+            };
+            await page.render(renderContext).promise;
+        }
     }
 
-    // Function to trigger the download from the modal
-    function downloadPDF() {
-      if (resumeGeneratorInstance) {
-        resumeGeneratorInstance.generate(); // This calls the .save() method
-      } else {
-        alert('Please generate a preview first.');
+    async function updatePreview() {
+      errorMessageDiv.classList.add('hidden');
+      try {
+        const currentConfig = JSON.parse(editor.getValue());
+        resumeGeneratorInstance = new ResumeGenerator(currentConfig);
+        const pdfData = resumeGeneratorInstance.getArrayBuffer();
+        await renderAllPages(pdfData);
+      } catch (e) {
+        errorMessageDiv.textContent = 'Error: Invalid configuration. ' + e.message;
+        errorMessageDiv.classList.remove('hidden');
+        console.error("Config Error:", e);
       }
     }
+
+    function initializeEditor() {
+      const editorContainer = document.getElementById('editor-container');
+      editor = CodeMirror(editorContainer, {
+        value: JSON.stringify(resumeConfig, null, 2),
+        mode: { name: "javascript", json: true },
+        theme: 'material-darker',
+        lineNumbers: true,
+        autofocus: true,
+      });
+      editor.on('change', debounce(updatePreview, 750));
+    }
+    
+    document.getElementById('download-btn').addEventListener('click', () => {
+      if (resumeGeneratorInstance) {
+        resumeGeneratorInstance.generate();
+      } else { alert("Please wait for the preview to generate first."); }
+    });
+
+    window.onload = () => {
+      initializeEditor();
+      updatePreview();
+    };
   </script>
 </body>
 </html>
