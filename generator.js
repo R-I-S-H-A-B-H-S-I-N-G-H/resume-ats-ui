@@ -27,7 +27,11 @@ class ResumeGenerator {
 		};
 	}
 
-	generate() {
+	// --- Private method to run the renderers ---
+	_build() {
+		// Reset y-position for fresh builds
+		this.y = this.theme.margins.top;
+
 		this.layout.forEach((section) => {
 			const renderer = this.renderers[section.type];
 			if (renderer) {
@@ -39,9 +43,23 @@ class ResumeGenerator {
 				console.warn(`No renderer found for section type: "${section.type}"`);
 			}
 		});
+	}
+
+	// --- Public methods for output ---
+
+	// Method to trigger the PDF download
+	generate() {
+		this._build(); // Build the PDF content
 		this.doc.save(this.config.meta.filename);
 	}
 
+	// Method to get PDF data for the preview
+	getPreviewData() {
+		this._build(); // Build the PDF content
+		return this.doc.output("datauristring");
+	}
+
+	// --- Helper methods ---
 	_checkPageBreak(blockHeight) {
 		if (this.y + blockHeight > this.pageHeight - this.theme.margins.bottom) {
 			this.doc.addPage();
@@ -62,6 +80,7 @@ class ResumeGenerator {
 		this.y += 15;
 	}
 
+	// --- Renderer methods (unchanged from before) ---
 	_renderHeader(section) {
 		const info = this.data[section.dataKey];
 		this.doc.setFont(this.theme.fonts.family, "bold");

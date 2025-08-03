@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Config-Driven Resume Generator</title>
+  <title>Config-Driven Resume Generator with Preview</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
@@ -11,26 +11,77 @@
   <div class="text-center bg-white p-8 sm:p-12 rounded-xl shadow-lg max-w-lg mx-4">
     <h1 class="text-3xl sm:text-4xl font-bold text-gray-800 mb-2">Dynamic Resume Generator</h1>
     <p class="text-gray-600 mb-6">
-      Customize your resume's content, layout, and theme by editing the 
-      <code class="bg-gray-200 text-teal-800 px-2 py-1 rounded">config.js</code> file.
+      Customize your resume in <code class="bg-gray-200 text-teal-800 px-2 py-1 rounded">config.js</code>, then click below to see a live preview.
     </p>
-    <button onclick="generateResume()" class="bg-teal-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-teal-700 focus:outline-none focus:ring-4 focus:ring-teal-300 transition-all duration-300 shadow-md hover:shadow-lg">
-      Download PDF
+    <button id="preview-button" onclick="showPreview()" class="bg-teal-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-teal-700 focus:outline-none focus:ring-4 focus:ring-teal-300 transition-all duration-300 shadow-md hover:shadow-lg">
+      Preview & Download
     </button>
+  </div>
+
+  <div id="preview-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-lg shadow-2xl w-full max-w-4xl h-[90vh] flex flex-col">
+      <div class="flex justify-between items-center p-4 border-b">
+        <h2 class="text-xl font-bold text-gray-800">Resume Preview</h2>
+        <button onclick="hidePreview()" class="text-gray-500 hover:text-gray-800 text-3xl leading-none">&times;</button>
+      </div>
+      <div class="flex-grow p-4 bg-gray-200">
+        <iframe id="pdf-preview-frame" class="w-full h-full border-none" title="Resume Preview"></iframe>
+      </div>
+      <div class="flex justify-end items-center p-4 border-t">
+        <button onclick="hidePreview()" class="bg-gray-300 text-gray-800 font-bold py-2 px-6 rounded-lg hover:bg-gray-400 mr-4">
+          Close
+        </button>
+        <button onclick="downloadPDF()" class="bg-teal-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-teal-700">
+          Download PDF
+        </button>
+      </div>
+    </div>
   </div>
 
   <script src="config.js"></script>
   <script src="generator.js"></script>
   
   <script>
-    // This function is now just a simple trigger.
-    async function generateResume() {
-      // Create a new instance of the generator with our configuration.
-      // The 'resumeConfig' variable comes from 'config.js'.
-      const generator = new ResumeGenerator(resumeConfig);
+    let resumeGeneratorInstance = null; // To hold the generator instance
+
+    const modal = document.getElementById('preview-modal');
+    const iframe = document.getElementById('pdf-preview-frame');
+    const previewButton = document.getElementById('preview-button');
+
+    // Function to generate the preview and show the modal
+    async function showPreview() {
+      previewButton.disabled = true;
+      previewButton.textContent = 'Generating...';
+
+      // Create a new generator instance
+      resumeGeneratorInstance = new ResumeGenerator(resumeConfig);
       
-      // Generate and save the PDF.
-      generator.generate();
+      // Get the PDF as a Data URI string
+      const pdfDataUri = resumeGeneratorInstance.getPreviewData();
+      
+      // Set the iframe source to the PDF data
+      iframe.src = pdfDataUri;
+      
+      // Show the modal
+      modal.classList.remove('hidden');
+
+      previewButton.disabled = false;
+      previewButton.textContent = 'Preview & Download';
+    }
+
+    // Function to hide the modal
+    function hidePreview() {
+      modal.classList.add('hidden');
+      iframe.src = 'about:blank'; // Clear the iframe
+    }
+
+    // Function to trigger the download from the modal
+    function downloadPDF() {
+      if (resumeGeneratorInstance) {
+        resumeGeneratorInstance.generate(); // This calls the .save() method
+      } else {
+        alert('Please generate a preview first.');
+      }
     }
   </script>
 </body>
