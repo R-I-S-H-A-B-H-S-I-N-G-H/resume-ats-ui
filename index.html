@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Config-Driven Resume Generator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen">
+  <div class="text-center bg-white p-8 sm:p-12 rounded-xl shadow-lg max-w-lg mx-4">
+    <h1 class="text-3xl sm:text-4xl font-bold text-gray-800 mb-2">Dynamic Resume Generator</h1>
+    <p class="text-gray-600 mb-6">
+      Customize your resume's content, layout, and theme by editing the 
+      <code class="bg-gray-200 text-teal-800 px-2 py-1 rounded">config.js</code> file.
+    </p>
+    <button onclick="generateResume()" class="bg-teal-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-teal-700 focus:outline-none focus:ring-4 focus:ring-teal-300 transition-all duration-300 shadow-md hover:shadow-lg">
+      Download PDF
+    </button>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="generator.js"></script>
+  
+  <script>
+    // This function is now just a simple trigger.
+    async function generateResume() {
+      // Create a new instance of the generator with our configuration.
+      // The 'resumeConfig' variable comes from 'config.js'.
+      const generator = new ResumeGenerator(resumeConfig);
+      
+      // Generate and save the PDF.
+      generator.generate();
+    }
+  </script>
+</body>
+</html>
