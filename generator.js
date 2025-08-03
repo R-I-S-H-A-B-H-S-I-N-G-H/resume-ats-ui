@@ -29,6 +29,9 @@ export class ResumeGenerator {
 
 	// --- Private method to run the renderers ---
 	_build() {
+		// Re-initialize the document to ensure a fresh build every time
+		this.doc = new window.jspdf.jsPDF("p", "pt", "a4");
+
 		// Reset y-position for fresh builds
 		this.y = this.theme.margins.top;
 
