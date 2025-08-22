@@ -1,143 +1,467 @@
-<!DOCTYPE html>
-<html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>Interactive Resume Editor & Preview</title>
-		<script src="https://cdn.tailwindcss.com"></script>
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-		<script src="https://mozilla.github.io/pdf.js/build/pdf.mjs" type="module"></script>
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>Resume Builder — Visual Theme Editor (pdfmake)</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+  <style>
+    :root { --border:#ddd; --muted:#666; }
+    * { box-sizing: border-box; }
+    body { margin:0; height:100vh; display:grid; grid-template-columns: 45% 55%; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    .left { border-right:1px solid var(--border); display:flex; flex-direction:column; min-width:420px; }
+    .pane { padding:12px; border-bottom:1px solid var(--border); }
+    .pane h3 { margin:4px 0 10px; font-size:14px; }
+    textarea { width:100%; height:260px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size:12px; padding:8px; border:1px solid var(--border); border-radius:8px; background:#fafafa; }
+    .controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:8px; }
+    .controls > * { margin:0; }
+    button, select { padding:8px 10px; font-weight:600; border:1px solid var(--border); border-radius:8px; background:#fff; cursor:pointer; }
+    button.primary { background:#111; color:#fff; border-color:#111; }
+    .right { display:flex; flex-direction:column; min-width:520px; }
+    .preview { flex:1; background:#f4f5f7; }
+    iframe { width:100%; height:100%; border:0; background:white; }
+    .bar { padding:10px; border-top:1px solid var(--border); color:var(--muted); font-size:12px; display:flex; justify-content:space-between; align-items:center; }
+    .grid { display:grid; grid-template-columns: repeat(2, minmax(180px,1fr)); gap:8px 12px; }
+    .field { display:flex; flex-direction:column; gap:6px; }
+    .field label { font-size:12px; color:#333; }
+    .field input[type="number"], .field input[type="text"] { padding:8px; border:1px solid var(--border); border-radius:8px; background:#fff; }
+    .field input[type="color"] { height:36px; padding:0; border:1px solid var(--border); border-radius:8px; }
+    .row { display:flex; gap:8px; align-items:center; }
+    .muted { color:var(--muted); font-size:12px; }
+    .small { font-size:11px; }
+  </style>
+</head>
+<body>
+  <div class="left">
+    <!-- Resume Config -->
+    <div class="pane">
+      <h3>Resume Config (JSON)</h3>
+      <textarea id="configInput"></textarea>
+      <div class="controls">
+        <label>Theme preset:
+          <select id="themeSelect"></select>
+        </label>
+        <button id="renderBtn" class="primary">Update Preview</button>
+        <button id="downloadBtn">Download PDF</button>
+      </div>
+    </div>
 
-		<!-- CodeMirror CSS -->
-		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.css" />
-		<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/theme/material-darker.min.css" />
-		<style>
-			.CodeMirror {
-				height: 100%;
-				font-size: 14px;
-			}
-		</style>
-	</head>
-	<body class="bg-gray-100 h-screen flex flex-col font-sans text-gray-800">
-		<header class="bg-white shadow p-4 flex justify-between items-center">
-			<h1 class="text-xl font-bold">Interactive Resume Editor</h1>
-			<button id="download-btn" class="bg-teal-600 hover:bg-teal-700 text-white font-semibold px-5 py-2 rounded-lg">
-				Download PDF
-			</button>
-		</header>
+    <!-- Visual Theme Editor -->
+    <div class="pane">
+      <h3>Visual Theme Editor</h3>
+      <div class="grid">
+        <!-- Page -->
+        <div class="field">
+          <label>Page margins (L, T, R, B)</label>
+          <div class="row">
+            <input type="number" id="mLeft"  value="40" min="10" max="100" step="2" style="width:70px;">
+            <input type="number" id="mTop"   value="40" min="10" max="100" step="2" style="width:70px;">
+            <input type="number" id="mRight" value="40" min="10" max="100" step="2" style="width:70px;">
+            <input type="number" id="mBottom"value="40" min="10" max="100" step="2" style="width:70px;">
+          </div>
+        </div>
 
-		<main class="flex flex-1 overflow-hidden h-[calc(100vh-72px)]">
-			<!-- Editor Panel -->
-			<div class="w-full md:w-1/2 flex flex-col bg-white shadow-inner border-r">
-				<div class="p-3 bg-gray-100 border-b shrink-0">
-					<h2 class="text-sm font-semibold text-gray-700">Configuration (`config.js`)</h2>
-				</div>
-				<div id="editor-container" class="flex-1 relative min-h-0 overflow-auto">
-					<div id="error-message" class="hidden absolute bottom-0 left-0 right-0 bg-red-500 text-white p-2 text-sm z-10"></div>
-				</div>
-			</div>
+        <!-- Header -->
+        <div class="field">
+          <label>Header font size</label>
+          <input type="number" id="hdrSize" value="22" min="12" max="36">
+        </div>
+        <div class="field">
+          <label>Header color</label>
+          <input type="color" id="hdrColor" value="#111111">
+        </div>
 
-			<!-- Preview Panel -->
-			<div class="w-full md:w-1/2 flex flex-col bg-white shadow-inner">
-				<div class="p-3 bg-gray-100 border-b shrink-0">
-					<h2 class="text-sm font-semibold text-gray-700">Live Preview</h2>
-				</div>
-				<div id="preview-container" class="flex-1 overflow-auto p-4 bg-gray-200 flex flex-col items-center space-y-6"></div>
-			</div>
-		</main>
+        <!-- Subheader -->
+        <div class="field">
+          <label>Subheader font size</label>
+          <input type="number" id="subSize" value="10" min="8" max="16">
+        </div>
+        <div class="field">
+          <label>Subheader color</label>
+          <input type="color" id="subColor" value="#555555">
+        </div>
 
-		<!-- Scripts -->
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/codemirror.min.js"></script>
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.15/mode/javascript/javascript.min.js"></script>
+        <!-- Section header -->
+        <div class="field">
+          <label>Section header font size</label>
+          <input type="number" id="secSize" value="12" min="10" max="18">
+        </div>
+        <div class="field">
+          <label>Section header color</label>
+          <input type="color" id="secColor" value="#2a2a2a">
+        </div>
+        <div class="field">
+          <label class="row"><input type="checkbox" id="secUnderline" checked> Underline section headers</label>
+        </div>
 
-		<script type="module">
-			import { resumeConfig } from "./config.js";
-			import { ResumeGenerator } from "./generator.js";
+        <!-- Body text -->
+        <div class="field">
+          <label>Body font size</label>
+          <input type="number" id="txtSize" value="10" min="8" max="14">
+        </div>
+        <div class="field">
+          <label>Body line height</label>
+          <input type="number" id="txtLH" value="1.3" step="0.05" min="1.0" max="2.0">
+        </div>
 
-			const { pdfjsLib } = globalThis;
-			pdfjsLib.GlobalWorkerOptions.workerSrc = `//mozilla.github.io/pdf.js/build/pdf.worker.mjs`;
+        <!-- Lists -->
+        <div class="field">
+          <label>List font size</label>
+          <input type="number" id="listSize" value="10" min="8" max="14">
+        </div>
+        <div class="field">
+          <label>List line height</label>
+          <input type="number" id="listLH" value="1.2" step="0.05" min="1.0" max="2.0">
+        </div>
 
-			let editor;
-			let resumeGeneratorInstance = null;
-			const errorMessageDiv = document.getElementById("error-message");
+        <!-- Entry -->
+        <div class="field">
+          <label>Entry title size</label>
+          <input type="number" id="entTitleSize" value="11" min="9" max="16">
+        </div>
+        <div class="field">
+          <label>Entry title color</label>
+          <input type="color" id="entTitleColor" value="#222222">
+        </div>
+        <div class="field">
+          <label>Entry date size</label>
+          <input type="number" id="entDateSize" value="9" min="8" max="14">
+        </div>
+        <div class="field">
+          <label>Entry date color</label>
+          <input type="color" id="entDateColor" value="#666666">
+        </div>
+        <div class="field">
+          <label>Entry subtitle size</label>
+          <input type="number" id="entSubSize" value="9" min="8" max="14">
+        </div>
+        <div class="field">
+          <label>Entry subtitle color</label>
+          <input type="color" id="entSubColor" value="#555555">
+        </div>
 
-			function debounce(func, delay) {
-				let timeout;
-				return function (...args) {
-					clearTimeout(timeout);
-					timeout = setTimeout(() => func.apply(this, args), delay);
-				};
-			}
+        <!-- Links -->
+        <div class="field">
+          <label>Link color</label>
+          <input type="color" id="linkColor" value="#1565c0">
+        </div>
+      </div>
 
-			async function renderAllPages(arrayBuffer) {
-				const previewContainer = document.getElementById("preview-container");
-				previewContainer.innerHTML = "";
+      <div class="controls">
+        <button id="applyVisualBtn" class="primary">Apply Visual Changes</button>
+        <span class="muted small">These controls update the theme JSON below 👇 and the preview.</span>
+      </div>
+    </div>
 
-				const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-				const pdf = await loadingTask.promise;
+    <!-- Raw Theme JSON (for advanced users) -->
+    <div class="pane" style="flex:1; overflow:auto;">
+      <h3>Theme JSON (advanced)</h3>
+      <textarea id="themeInput"></textarea>
+      <div class="controls">
+        <button id="applyThemeBtn">Apply Theme JSON</button>
+        <button id="saveThemeBtn">Save as New Theme</button>
+      </div>
+      <div class="muted small">Theme schema: { pageSize, pageMargins, defaultStyle, styles{ header, subheader, sectionHeader, text, list, entryTitle, entryDate, entrySubtitle, link } }</div>
+    </div>
+  </div>
 
-				const pageForScaling = await pdf.getPage(1);
-				const viewportForScaling = pageForScaling.getViewport({ scale: 1.0 });
-				const scale = (previewContainer.clientWidth - 48) / viewportForScaling.width;
+  <div class="right">
+    <div class="preview"><iframe id="pdfFrame"></iframe></div>
+    <div class="bar">
+      <span>Preview is live pdfmake output. Links are clickable.</span>
+      <span class="muted">Theme presets + visual controls → JSON sync → PDF</span>
+    </div>
+  </div>
 
-				for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-					const page = await pdf.getPage(pageNum);
-					const scaledViewport = page.getViewport({ scale: scale });
+<script>
+/* ========= Preset Themes ========= */
+const THEMES = {
+  classic: {
+    pageSize: "A4",
+    pageMargins: [40, 40, 40, 40],
+    defaultStyle: { font: "Roboto" },
+    styles: {
+      header:        { fontSize: 22, bold: true, alignment: "center", margin: [0, 0, 0, 6], color:"#111111" },
+      subheader:     { fontSize: 10, alignment: "center", margin: [0, 0, 0, 16], color: "#555555" },
+      sectionHeader: { fontSize: 12, bold: true, margin: [0, 14, 0, 6], color: "#2a2a2a", decoration: "underline" },
+      text:          { fontSize: 10, margin: [0, 0, 0, 6], lineHeight: 1.3 },
+      list:          { fontSize: 10, margin: [0, 0, 0, 6], lineHeight: 1.2 },
+      entryTitle:    { fontSize: 11, bold: true, color: "#222222", margin: [0,2,0,0] },
+      entryDate:     { fontSize: 9, italics: true, color: "#666666", margin: [0,2,0,0] },
+      entrySubtitle: { fontSize: 9, italics: true, color: "#555555", margin: [0,0,0,4] },
+      link:          { fontSize: 10, color: "#1565c0", decoration: "underline" }
+    }
+  },
+  modern: {
+    pageSize: "A4",
+    pageMargins: [50, 52, 50, 52],
+    defaultStyle: { font: "Roboto" },
+    styles: {
+      header:        { fontSize: 24, bold: true, color: "#2E3B4E", alignment: "left", margin: [0, 0, 0, 10] },
+      subheader:     { fontSize: 11, color: "#555", margin: [0, 0, 0, 20] },
+      sectionHeader: { fontSize: 13, bold: true, color: "#1A73E8", margin: [0, 14, 0, 8], decoration: "underline" },
+      text:          { fontSize: 10, margin: [0, 0, 0, 6], lineHeight: 1.4 },
+      list:          { fontSize: 10, margin: [0, 0, 0, 6], lineHeight: 1.3 },
+      entryTitle:    { fontSize: 12, bold: true, color: "#111" },
+      entryDate:     { fontSize: 9, italics: true, color: "#1A73E8" },
+      entrySubtitle: { fontSize: 9, color: "#444", margin: [0, 0, 0, 4] },
+      link:          { fontSize: 10, color: "#1A73E8", decoration: "underline" }
+    }
+  }
+};
 
-					const canvas = document.createElement("canvas");
-					canvas.className = "shadow-lg";
-					const context = canvas.getContext("2d");
-					canvas.height = scaledViewport.height;
-					canvas.width = scaledViewport.width;
+/* ========= Sample Resume Config ========= */
+const initialConfig = {
+  content: [
+    { type: "text", text: "RISHABH SINGH", style: "header" },
+    { type: "text", text: "+91 9540141141  |  rishabhsingh2305@gmail.com  |  linkedin.com/in/rishabhsingh2305", style: "subheader" },
 
-					previewContainer.appendChild(canvas);
+    { type: "section", title: "Professional Summary", items: [
+      { type: "text", text: "Full-Stack AI Engineer with 2.5 years of experience in Java, Spring Boot, Hibernate, Kafka, MySQL, and RESTful APIs, building scalable, event-driven microservices and distributed systems. Skilled in OOP, DSA, and Generative AI (GPT, Azure OpenAI, Claude) with expertise in intelligent agents, RAG pipelines, embeddings, semantic search, and LLM tools. Proficient in LangChain, LangSmith, LangGraph, Pinecone, and ChromaDB." }
+    ]},
 
-					const renderContext = {
-						canvasContext: context,
-						viewport: scaledViewport,
-					};
-					await page.render(renderContext).promise;
-				}
-			}
+    { type: "section", title: "Technical Skills", items: [
+      { type: "text", text: "AI & Machine Learning: LLMs (GPT-4, OSS), LangChain, RAG, Semantic Search, Pinecone, Embeddings, Agent memory, Tool chaining" },
+      { type: "text", text: "Languages: Java, C++, JavaScript, HTML/CSS, Python, Go" },
+      { type: "text", text: "Frameworks: Spring Boot, ReactJS, NextJs" },
+      { type: "text", text: "Databases: MySQL, Apache Druid" }
+    ]},
 
-			async function updatePreview() {
-				errorMessageDiv.classList.add("hidden");
-				try {
-					const currentConfig = JSON.parse(editor.getValue());
-					resumeGeneratorInstance = new ResumeGenerator(currentConfig);
-					const pdfData = resumeGeneratorInstance.getArrayBuffer();
-					await renderAllPages(pdfData);
-				} catch (e) {
-					errorMessageDiv.textContent = "Error: Invalid configuration. " + e.message;
-					errorMessageDiv.classList.remove("hidden");
-					console.error("Config Error:", e);
-				}
-			}
+    { type: "section", title: "Professional Experience", items: [
+      { type: "columns", columns: [
+        { type: "text", text: "TechCrumb — Software Development Engineer", style: "entryTitle" },
+        { type: "text", text: "Jan 2023 – Current", style: "entryDate", alignment: "right" }
+      ]},
+      { type: "text", text: "Delhi, India", style: "entrySubtitle" },
+      { type: "list", items: [
+        "Built an AI-powered intelligent system using Python, FastAPI, LangGraph agents, and ChromaDB that generated model-specific prompts for I2V models (Seedance, Veo2, Hailuo, etc.), boosting video generation quality and coherence.",
+        "Integrated Generative AI (GPT, Azure OpenAI, Claude) into workflows with LangChain, LangGraph, LangSmith, Pinecone, and ChromaDB, enabling intelligent agents, RAG pipelines, and semantic search.",
+        "Architected distributed microservices on AWS Lambda for video encoding, reducing processing time while ensuring high availability."
+      ]}
+    ]},
 
-			function initializeEditor() {
-				const editorContainer = document.getElementById("editor-container");
-				editor = CodeMirror(editorContainer, {
-					value: JSON.stringify(resumeConfig, null, 2),
-					mode: { name: "javascript", json: true },
-					theme: "material-darker",
-					lineNumbers: true,
-					autofocus: true,
-				});
-				editor.on("change", debounce(updatePreview, 750));
-			}
+    { type: "section", title: "Projects", items: [
+      { type: "columns", columns: [
+        { type: "text", text: "JS SERVE | Express, AWS S3, React.js", style: "entryTitle" },
+        { type: "text", text: "Jan 2024", style: "entryDate", alignment: "right" }
+      ]},
+      { type: "list", items: [
+        { text: [ "Live: ", { text: "JS Serve", link: "https://jsserve.pages.dev", style: "link" } ] },
+        "Instant file hosting platform with Express.js & AWS S3 backend and React.js frontend.",
+        "Smooth uploads with dynamic public URLs."
+      ]},
 
-			document.getElementById("download-btn").addEventListener("click", () => {
-				if (resumeGeneratorInstance) {
-					resumeGeneratorInstance.generate();
-				} else {
-					alert("Please wait for the preview to generate first.");
-				}
-			});
+      { type: "columns", columns: [
+        { type: "text", text: "Metro Route | React Native, JavaScript", style: "entryTitle" },
+        { type: "text", text: "2023", style: "entryDate", alignment: "right" }
+      ]},
+      { type: "list", items: [
+        "Shortest path between stations, offline capable.",
+        { text: [ "Source: ", { text: "GitHub", link: "https://github.com/R-I-S-H-A-B-H-S-I-N-G-H/Metro-Route", style: "link" } ] }
+      ]}
+    ]},
 
-			window.onload = () => {
-				initializeEditor();
-				updatePreview();
-			};
-		</script>
-	</body>
+    { type: "section", title: "Achievements", items: [
+      { type: "list", items: [
+        { text: [ "Highest rating of 1781 at ", { text: "LeetCode", link: "https://leetcode.com/u/rishabhsingh2305/", style: "link" }, " (Top 8% globally)." ] }
+      ]}
+    ]},
+
+    { type: "section", title: "Education", items: [
+      { type: "columns", columns: [
+        { type: "text", text: "Echelon Institute Of Engineering College Faridabad", style: "entryTitle" },
+        { type: "text", text: "Aug 2019 – Jul 2023", style: "entryDate", alignment: "right" }
+      ]},
+      { type: "text", text: "Bachelor of Technology in Computer Science Engineering (CGPA: 8.2)", style: "entrySubtitle" },
+      { type: "text", text: "Faridabad, India", style: "entrySubtitle" }
+    ]}
+  ]
+};
+
+/* ========= Generic Renderer ========= */
+function renderNode(node) {
+  switch (node.type) {
+    case "text":
+      return { text: node.text, style: node.style || "text", alignment: node.alignment, margin: node.margin, color: node.color, link: node.link };
+    case "list":
+      return { ul: node.items, style: node.style || "list", margin: node.margin };
+    case "columns":
+      return { columns: node.columns.map(renderNode), columnGap: node.columnGap || 12, margin: node.margin };
+    case "section":
+      return [
+        { text: node.title, style: "sectionHeader" },
+        ...(node.items || []).map(renderNode)
+      ];
+    default:
+      return { text: "" };
+  }
+}
+function buildDocDefinition(cfg, theme) {
+  const content = [];
+  for (const n of (cfg.content || [])) {
+    const r = renderNode(n);
+    if (Array.isArray(r)) content.push(...r);
+    else content.push(r);
+  }
+  return {
+    pageSize: theme.pageSize || "A4",
+    pageMargins: theme.pageMargins || [40,40,40,40],
+    content,
+    styles: theme.styles || {},
+    defaultStyle: theme.defaultStyle || { font: "Roboto" }
+  };
+}
+
+/* ========= UI Wiring ========= */
+const configInput = document.getElementById("configInput");
+const themeInput  = document.getElementById("themeInput");
+const themeSelect = document.getElementById("themeSelect");
+const pdfFrame    = document.getElementById("pdfFrame");
+
+configInput.value = JSON.stringify(initialConfig, null, 2);
+Object.keys(THEMES).forEach(k => {
+  const opt = document.createElement("option");
+  opt.value = k; opt.textContent = k[0].toUpperCase() + k.slice(1);
+  themeSelect.appendChild(opt);
+});
+themeSelect.value = "classic";
+themeInput.value = JSON.stringify(THEMES[themeSelect.value], null, 2);
+
+function parseTheme() {
+  try { return JSON.parse(themeInput.value); }
+  catch(e){ alert("Theme JSON invalid: "+e.message); throw e; }
+}
+function renderPreview() {
+  try {
+    const cfg = JSON.parse(configInput.value);
+    const theme = parseTheme();
+    const docDef = buildDocDefinition(cfg, theme);
+    pdfMake.createPdf(docDef).getDataUrl(url => pdfFrame.src = url);
+  } catch(e){ /* handled above */ }
+}
+document.getElementById("renderBtn").onclick   = renderPreview;
+document.getElementById("downloadBtn").onclick = () => {
+  try {
+    const cfg   = JSON.parse(configInput.value);
+    const theme = parseTheme();
+    const docDef = buildDocDefinition(cfg, theme);
+    pdfMake.createPdf(docDef).download("resume.pdf");
+  } catch(e){}
+};
+themeSelect.onchange = () => {
+  themeInput.value = JSON.stringify(THEMES[themeSelect.value], null, 2);
+  loadVisualControlsFromTheme();
+  renderPreview();
+};
+document.getElementById("applyThemeBtn").onclick = renderPreview;
+document.getElementById("saveThemeBtn").onclick  = () => {
+  const name = prompt("Name this theme:", "custom");
+  if (!name) return;
+  try {
+    const themeObj = parseTheme();
+    THEMES[name] = themeObj;
+    if (!Array.from(themeSelect.options).some(o => o.value === name)) {
+      const opt = document.createElement("option");
+      opt.value = name; opt.textContent = name[0].toUpperCase() + name.slice(1);
+      themeSelect.appendChild(opt);
+    }
+    themeSelect.value = name;
+    renderPreview();
+  } catch(e){}
+};
+
+/* ========= Visual Controls <-> Theme JSON Sync ========= */
+const VC = {
+  mLeft:  document.getElementById("mLeft"),
+  mTop:   document.getElementById("mTop"),
+  mRight: document.getElementById("mRight"),
+  mBottom:document.getElementById("mBottom"),
+  hdrSize:document.getElementById("hdrSize"),
+  hdrColor:document.getElementById("hdrColor"),
+  subSize:document.getElementById("subSize"),
+  subColor:document.getElementById("subColor"),
+  secSize:document.getElementById("secSize"),
+  secColor:document.getElementById("secColor"),
+  secUnderline:document.getElementById("secUnderline"),
+  txtSize:document.getElementById("txtSize"),
+  txtLH:  document.getElementById("txtLH"),
+  listSize:document.getElementById("listSize"),
+  listLH: document.getElementById("listLH"),
+  entTitleSize:document.getElementById("entTitleSize"),
+  entTitleColor:document.getElementById("entTitleColor"),
+  entDateSize:document.getElementById("entDateSize"),
+  entDateColor:document.getElementById("entDateColor"),
+  entSubSize:document.getElementById("entSubSize"),
+  entSubColor:document.getElementById("entSubColor"),
+  linkColor:document.getElementById("linkColor"),
+};
+
+function loadVisualControlsFromTheme() {
+  const th = parseTheme();
+  const s  = th.styles || {};
+  const pm = th.pageMargins || [40,40,40,40];
+  VC.mLeft.value   = pm[0] ?? 40;
+  VC.mTop.value    = pm[1] ?? 40;
+  VC.mRight.value  = pm[2] ?? 40;
+  VC.mBottom.value = pm[3] ?? 40;
+
+  VC.hdrSize.value   = s.header?.fontSize ?? 22;
+  VC.hdrColor.value  = rgbToHex(s.header?.color) ?? "#111111";
+  VC.subSize.value   = s.subheader?.fontSize ?? 10;
+  VC.subColor.value  = rgbToHex(s.subheader?.color) ?? "#555555";
+  VC.secSize.value   = s.sectionHeader?.fontSize ?? 12;
+  VC.secColor.value  = rgbToHex(s.sectionHeader?.color) ?? "#2a2a2a";
+  VC.secUnderline.checked = !!(s.sectionHeader?.decoration === "underline");
+
+  VC.txtSize.value   = s.text?.fontSize ?? 10;
+  VC.txtLH.value     = s.text?.lineHeight ?? 1.3;
+
+  VC.listSize.value  = s.list?.fontSize ?? 10;
+  VC.listLH.value    = s.list?.lineHeight ?? 1.2;
+
+  VC.entTitleSize.value  = s.entryTitle?.fontSize ?? 11;
+  VC.entTitleColor.value = rgbToHex(s.entryTitle?.color) ?? "#222222";
+  VC.entDateSize.value   = s.entryDate?.fontSize ?? 9;
+  VC.entDateColor.value  = rgbToHex(s.entryDate?.color) ?? "#666666";
+  VC.entSubSize.value    = s.entrySubtitle?.fontSize ?? 9;
+  VC.entSubColor.value   = rgbToHex(s.entrySubtitle?.color) ?? "#555555";
+
+  VC.linkColor.value     = rgbToHex(s.link?.color) ?? "#1565c0";
+}
+function applyVisualControlsToTheme() {
+  const th = parseTheme();
+  th.pageMargins = [
+    int(VC.mLeft.value), int(VC.mTop.value), int(VC.mRight.value), int(VC.mBottom.value)
+  ];
+  const st = th.styles = th.styles || {};
+  st.header        = { ...(st.header||{}),        fontSize: int(VC.hdrSize.value), color: VC.hdrColor.value, bold: true, alignment: st.header?.alignment || "center", margin: st.header?.margin || [0,0,0,6] };
+  st.subheader     = { ...(st.subheader||{}),     fontSize: int(VC.subSize.value), color: VC.subColor.value, alignment: st.subheader?.alignment || "center", margin: st.subheader?.margin || [0,0,0,16] };
+  st.sectionHeader = { ...(st.sectionHeader||{}), fontSize: int(VC.secSize.value), color: VC.secColor.value, decoration: VC.secUnderline.checked ? "underline" : undefined, bold:true, margin: st.sectionHeader?.margin || [0,14,0,6] };
+  st.text          = { ...(st.text||{}),          fontSize: int(VC.txtSize.value), lineHeight: parseFloat(VC.txtLH.value), margin: st.text?.margin || [0,0,0,6] };
+  st.list          = { ...(st.list||{}),          fontSize: int(VC.listSize.value), lineHeight: parseFloat(VC.listLH.value), margin: st.list?.margin || [0,0,0,6] };
+  st.entryTitle    = { ...(st.entryTitle||{}),    fontSize: int(VC.entTitleSize.value), color: VC.entTitleColor.value, bold: true };
+  st.entryDate     = { ...(st.entryDate||{}),     fontSize: int(VC.entDateSize.value), color: VC.entDateColor.value, italics: true };
+  st.entrySubtitle = { ...(st.entrySubtitle||{}), fontSize: int(VC.entSubSize.value), color: VC.entSubColor.value, italics: true, margin: st.entrySubtitle?.margin || [0,0,0,4] };
+  st.link          = { ...(st.link||{}),          color: VC.linkColor.value, decoration: "underline", fontSize: st.link?.fontSize || st.text?.fontSize || 10 };
+
+  themeInput.value = JSON.stringify(th, null, 2);
+}
+function int(v){ return Number.isFinite(+v) ? +v : 0; }
+function rgbToHex(v){
+  if(!v) return null;
+  if(/^#/.test(v)) return v;
+  // pdfmake can accept hex; just pass-through. If an rgb(...) sneaks in, naive convert:
+  const m = String(v).match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/i);
+  if(!m) return null;
+  const toHex = n => ('0' + parseInt(n,10).toString(16)).slice(-2);
+  return '#' + toHex(m[1]) + toHex(m[2]) + toHex(m[3]);
+}
+
+document.getElementById("applyVisualBtn").onclick = () => { applyVisualControlsToTheme(); renderPreview(); };
+
+/* Init */
+loadVisualControlsFromTheme();
+renderPreview();
+</script>
+</body>
 </html>
