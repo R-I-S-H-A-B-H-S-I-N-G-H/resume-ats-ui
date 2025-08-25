@@ -6,21 +6,19 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator";
 import { useState } from "react";
 import StyleEditor, { NumberField } from "./styleEditor";
+import { Textarea } from "@/components/ui/textarea";
 
 export const BLOCK_TYPE = {
-    // SIMPLE_TEXT: "simple-text",
-    TEXT: "text",
+	TEXT: "text",
 
-    TEXT_ARRAY: "text-array",
-    UL: "ul",
-    OL: "ol",
-    // SECTION: "section",
-    // COLUMNS: "columns",
-    // IMAGE: "image",
-
-}
+	TEXT_ARRAY: "text-array",
+	UL: "ul",
+	OL: "ol",
+};
 
 export default function ConfigEditor({ docDef, onChange }: { docDef: any, onChange: (newDocDef: any) => void }) {
+    const styleList = Object.keys(docDef.styles ?? {}).map(ele=>({label:ele,value:ele}));
+
     const [selectedElementType, setSelectedElementType] = useState<string>("text");
 
     const elementTypeList = Object.keys(BLOCK_TYPE).map((key) => ({ label: key, value: BLOCK_TYPE[key as keyof typeof BLOCK_TYPE] }));
@@ -64,53 +62,34 @@ export default function ConfigEditor({ docDef, onChange }: { docDef: any, onChan
     function handleTextRendering(ele: any, onUpdate?: (newVal: any) => void) {
         if (Array.isArray(ele.text)) {
             return (
-                <div className="space-y-2">
-                    <Label
-                        className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
-                    >
-                        Text Array
-                    </Label>
-                    <Accordion type="single" collapsible>
-                        <AccordionItem value="item-1">
-                            <AccordionTrigger>
-                                <Label
-                                    className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
-                                >
-                                    Text Array Style Options
-                                </Label>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                                <StyleEditor
-                                    text={ele.text}
-                                    onChangeNode={(node) => {
-                                        onUpdate && onUpdate({ ...ele, ...node })
-                                    }}
-
-                                    value={ele ?? {}}
-                                />
-                            </AccordionContent>
-
-                        </AccordionItem>
-                    </Accordion>
-                    <Separator />
-                    {ele.text.map((textItem: any, idx: number) => (
-                        <div key={idx} className="mb-2">
-                            {handleTextRendering(textItem, (newVal) => {
-                                const updatedTextArray = [...ele.text];
-                                updatedTextArray[idx] = newVal;
-                                onUpdate && onUpdate({ ...ele, text: updatedTextArray });
-                            })}
-                        </div>
-                    ))}
-                    <Button
-                        variant={"link"}
-                        onClick={() => {
-                            const updatedTextArray = [...ele.text, getDefaultItem("text")];
-                            onUpdate && onUpdate({ ...ele, text: updatedTextArray });
+				<div className="space-y-2">
+					<Label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Text Array</Label>
+                    <Dropdown list={styleList} initialVal={ele.style}
+                        onSelect={({ value }) => { 
+                            onUpdate && onUpdate({ ...ele, style: value });
                         }}
-                    >Add Text</Button>
-                </div>
-            )
+                    />
+					<Separator />
+					{ele.text.map((textItem: any, idx: number) => (
+						<div key={idx} className="mb-2">
+							{handleTextRendering(textItem, (newVal) => {
+								const updatedTextArray = [...ele.text];
+								updatedTextArray[idx] = newVal;
+								onUpdate && onUpdate({ ...ele, text: updatedTextArray });
+							})}
+						</div>
+					))}
+					<Button
+						variant={"link"}
+						onClick={() => {
+							const updatedTextArray = [...ele.text, getDefaultItem("text")];
+							onUpdate && onUpdate({ ...ele, text: updatedTextArray });
+						}}
+					>
+						Add Text
+					</Button>
+				</div>
+			);
         }
 
 
@@ -131,40 +110,24 @@ export default function ConfigEditor({ docDef, onChange }: { docDef: any, onChan
         }
 
         return (
-            <div className="space-y-2">
-                <Label
-                    className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
-                >
-                    text
-                </Label>
-                <Input value={ele.text} onChange={(e) => {
-                    const newText = e.target.value;
-                    onUpdate && onUpdate({ ...ele, text: newText })
-                }} />
-                <Accordion type="single" collapsible>
-                    <AccordionItem value="item-1">
-                        <AccordionTrigger>
-                            <Label
-                                className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground"
-                            >
-                                Style Options
-                            </Label>
-                        </AccordionTrigger>
-                        <AccordionContent>
-                            <StyleEditor
-                                text={ele.text}
-                                onChangeNode={(node) => {
-                                    onUpdate && onUpdate({ ...ele, ...node })
-                                }}
-
-                                value={ele ?? {}}
-                            />
-                        </AccordionContent>
-
-                    </AccordionItem>
-                </Accordion>
-            </div >
-        )
+			<div className="space-y-2">
+				<Label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">text</Label>
+				<Textarea
+					value={ele.text}
+					onChange={(e) => {
+						const newText = e.target.value;
+						onUpdate && onUpdate({ ...ele, text: newText });
+					}}
+				/>
+				<Dropdown
+					list={styleList}
+					initialVal={ele.style}
+					onSelect={({ value }) => {
+						onUpdate && onUpdate({ ...ele, style: value });
+					}}
+				/>
+			</div>
+		);
     }
 
     function handleUlRendering(ele: any, onUpdate?: (newVal: any) => void) {
@@ -309,6 +272,37 @@ export default function ConfigEditor({ docDef, onChange }: { docDef: any, onChan
                 return handleTextRendering(ele, (newVal) => updateDocDefContent(idx, newVal));
 
             })}
+
+            <Separator />
+            <h2 className="scroll-m-20 border-b pb-2 text-3xl font-semibold tracking-tight first:mt-0">
+                Styles
+            </h2>
+
+            {
+                styleList.map(({ value }) => {
+                    const styleKey = value;
+                    const styleConf = docDef?.styles[styleKey]
+
+                    return (
+                        <Accordion type="single" collapsible>
+                            <AccordionItem value="item-1">
+                                <AccordionTrigger>
+                                    <Label className="text-[12px] font-medium font-bold uppercase tracking-wider text-muted-foreground">{styleKey}</Label>
+                                </AccordionTrigger>
+                                <AccordionContent>
+                                    <StyleEditor value={styleConf}
+                                        onChangeNode={(chnages) => {
+                                            updateDocDef("styles", { ...docDef.styles, [styleKey]: chnages })
+                                        }}
+                                    />
+                                </AccordionContent>
+                            </AccordionItem>
+                        </Accordion>
+                    );
+					
+                })
+            }
+            
         </div>
     )
 }
