@@ -22,7 +22,7 @@ export interface DropDownItem {
     label: string
 }
 
-export default function Dropdown({ list = [], label = "Select options", onSelect, initialVal = "" }: { list: DropDownItem[], label?: string, initialVal?: string, onSelect?: (value: DropDownItem) => void }) {
+export default function Dropdown({ list = [], label = "Select", onSelect, initialVal = "" }: { list: DropDownItem[], label?: string, initialVal?: string, onSelect?: (value: DropDownItem) => void }) {
     const [open, setOpen] = React.useState(false)
     const [value, setValue] = React.useState(initialVal)
 
@@ -49,9 +49,9 @@ export default function Dropdown({ list = [], label = "Select options", onSelect
             </PopoverTrigger>
             <PopoverContent className="w-[200px] p-0">
                 <Command>
-                    <CommandInput placeholder="Search framework..." className="h-9" />
+                    <CommandInput placeholder="Search.." className="h-9" />
                     <CommandList>
-                        <CommandEmpty>No framework found.</CommandEmpty>
+                        {/* <CommandEmpty>No framework found.</CommandEmpty> */}
                         <CommandGroup>
                             {list.map((item) => (
                                 <CommandItem
