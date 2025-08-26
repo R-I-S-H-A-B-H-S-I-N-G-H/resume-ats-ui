@@ -89,20 +89,29 @@ export default function ConfigEditor({ docDef, onChange }: { docDef: any; onChan
 						/>
 					</div>
 					<Separator />
-					{ele.text.map((textItem: any, idx: number) => (
-						<div key={idx} className="mb-2">
-							{handleTextRendering(textItem, (newVal) => {
-								if (newVal == null) {
-									ele.text.splice(idx, 1);
-									onUpdate && onUpdate({ ...ele });
-									return;
-								}
-								const updatedTextArray = [...ele.text];
-								updatedTextArray[idx] = newVal;
-								onUpdate && onUpdate({ ...ele, text: updatedTextArray });
-							})}
-						</div>
-					))}
+					<Accordion type="single" collapsible>
+						<AccordionItem value="item-1">
+							<AccordionTrigger>
+								<Label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Show List</Label>
+							</AccordionTrigger>
+							<AccordionContent>
+								{ele.text.map((textItem: any, idx: number) => (
+									<div key={idx} className="mb-2">
+										{handleTextRendering(textItem, (newVal) => {
+											if (newVal == null) {
+												ele.text.splice(idx, 1);
+												onUpdate && onUpdate({ ...ele });
+												return;
+											}
+											const updatedTextArray = [...ele.text];
+											updatedTextArray[idx] = newVal;
+											onUpdate && onUpdate({ ...ele, text: updatedTextArray });
+										})}
+									</div>
+								))}
+							</AccordionContent>
+						</AccordionItem>
+					</Accordion>
 					<Button
 						variant={"link"}
 						onClick={() => {
@@ -307,9 +316,10 @@ export default function ConfigEditor({ docDef, onChange }: { docDef: any; onChan
 				setList={(uplist) => {
 					updateDocDef("content", uplist);
 				}}
+				className="space-y-4"
 			>
 				{docDef?.content.map((ele: any, idx: number) => {
-					{
+					const renderBlock = () => {
 						if (ele.hasOwnProperty("text")) {
 							return handleTextRendering(ele, (newVal) => updateDocDefContent(idx, newVal));
 						}
@@ -318,9 +328,14 @@ export default function ConfigEditor({ docDef, onChange }: { docDef: any; onChan
 							return handleUlRendering(ele, (newVal) => updateDocDefContent(idx, newVal));
 						}
 
-						// default typeis text
 						return handleTextRendering(ele, (newVal) => updateDocDefContent(idx, newVal));
-					}
+					};
+
+					return (
+						<div key={idx} className="rounded-md border bg-muted/30 p-4 shadow-sm">
+							{renderBlock()}
+						</div>
+					);
 				})}
 			</ReactSortable>
 
