@@ -12,6 +12,7 @@ import ConfigEditor from "./configEditor";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
+import PdfViewer from "@/components/custom/pdfViewer";
 
 pdfMake.vfs = pdfFonts.vfs;
 
@@ -1154,7 +1155,7 @@ export default function PdfResumeEditor() {
 								</Button>
 								<Input
 									// value={JSON.stringify(docDef, null, 2)}
-									onChange={(e) => { 
+									onChange={(e) => {
 										setDocDef(JSON.parse(e.target.value));
 									}}
 									placeholder="Enter the config here"
@@ -1170,11 +1171,7 @@ export default function PdfResumeEditor() {
 
 				{/* Right: PDF Preview */}
 				<ResizablePanel defaultSize={60} minSize={40} className="h-full overflow-y-auto">
-					{pdfUrl ? (
-						<iframe src={pdfUrl + "#toolbar=0&navpanes=0"} className="w-full h-full border-none" />
-					) : (
-						<div className="flex items-center justify-center h-full text-muted-foreground">Generating PDF…</div>
-					)}
+					<PdfViewer pdfUrl={pdfUrl} />
 				</ResizablePanel>
 			</ResizablePanelGroup>
 		</div>
