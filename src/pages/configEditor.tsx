@@ -8,13 +8,11 @@ import { useState } from "react";
 import StyleEditor, { NumberField } from "./styleEditor";
 import { Textarea } from "@/components/ui/textarea";
 import { CrossButton } from "@/components/custom/deleteButton";
-import { ReactSortable } from "react-sortablejs";
 import DragHandle from "@/components/custom/dragHandle";
+import RichPdfMakeTextEditor from "@/components/custom/richPdfMakeTextEditor";
 
 export const BLOCK_TYPE = {
 	TEXT: "text",
-
-	TEXT_ARRAY: "text-array",
 	UL: "ul",
 	OL: "ol",
 };
@@ -50,18 +48,16 @@ export default function ConfigEditor({ docDef, onChange }: { docDef: any; onChan
 		onChange({ ...docDef, content: updatedContent });
 	}
 
-	function getDefaultItem(type: string) {
+	function getDefaultItem(type: string): any {
 		switch (type) {
-			case BLOCK_TYPE.TEXT_ARRAY:
-				return { text: [{ text: "Write something here" }] };
 			case BLOCK_TYPE.TEXT:
-				return { text: "Write something here" };
+				return { text: [{ text: "t" }, { text: "e" }, { text: "x" }, { text: "t" }] };
 			case BLOCK_TYPE.UL:
-				return { ul: ["List item 1", "List item 2"] };
+				return { ul: [getDefaultItem(BLOCK_TYPE.TEXT)] };
 			case BLOCK_TYPE.OL:
-				return { ol: ["List item 1", "List item 2"] };
+				return { ol: [getDefaultItem(BLOCK_TYPE.TEXT)] };
 			default:
-				return { text: "Write something here" };
+				return { text: [{ text: "t" }, { text: "e" }, { text: "x" }, { text: "t" }] };
 		}
 	}
 
@@ -75,7 +71,7 @@ export default function ConfigEditor({ docDef, onChange }: { docDef: any; onChan
 					</div>
 					<div className="flex gap-2">
 						<Dropdown
-							label="Select Text Grp Style"
+							label="Select Predefined Style"
 							list={styleList}
 							initialVal={ele.style}
 							onSelect={({ value }) => {
@@ -89,38 +85,12 @@ export default function ConfigEditor({ docDef, onChange }: { docDef: any; onChan
 						/>
 					</div>
 					<Separator />
-					<Accordion type="single" collapsible>
-						<AccordionItem value="item-1">
-							<AccordionTrigger>
-								<Label className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">Show List</Label>
-							</AccordionTrigger>
-							<AccordionContent>
-								{ele.text.map((textItem: any, idx: number) => (
-									<div key={idx} className="mb-2">
-										{handleTextRendering(textItem, (newVal) => {
-											if (newVal == null) {
-												ele.text.splice(idx, 1);
-												onUpdate && onUpdate({ ...ele });
-												return;
-											}
-											const updatedTextArray = [...ele.text];
-											updatedTextArray[idx] = newVal;
-											onUpdate && onUpdate({ ...ele, text: updatedTextArray });
-										})}
-									</div>
-								))}
-							</AccordionContent>
-						</AccordionItem>
-					</Accordion>
-					<Button
-						variant={"link"}
-						onClick={() => {
-							const updatedTextArray = [...ele.text, getDefaultItem("text")];
-							onUpdate && onUpdate({ ...ele, text: updatedTextArray });
+					<RichPdfMakeTextEditor
+						config={ele}
+						onUpdate={(config) => {
+							onUpdate && onUpdate(config);
 						}}
-					>
-						Add Text
-					</Button>
+					/>
 				</div>
 			);
 		}
@@ -164,6 +134,7 @@ export default function ConfigEditor({ docDef, onChange }: { docDef: any; onChan
 							onUpdate && onUpdate({ ...ele, text: newText });
 						}}
 					/>
+
 					<CrossButton
 						onClick={() => {
 							onUpdate && onUpdate(null);
@@ -200,7 +171,7 @@ export default function ConfigEditor({ docDef, onChange }: { docDef: any; onChan
 		};
 
 		const addItem = (itemType: string) => {
-			onUpdate && onUpdate({ ...ele, [LIST_TYPE]: [...ele[LIST_TYPE], { [itemType]: "Write something here" }] });
+			onUpdate && onUpdate({ ...ele, [LIST_TYPE]: [...ele[LIST_TYPE], getDefaultItem(itemType)] });
 		};
 
 		return (
@@ -240,7 +211,7 @@ export default function ConfigEditor({ docDef, onChange }: { docDef: any; onChan
 								})}
 								<div className="flex gap-2 mt-2">
 									<Dropdown label="Select Block to add" list={[{ label: "Text", value: "text" }]} />
-									<Button variant={"outline"} onClick={() => addItem("text")}>
+									<Button variant={"outline"} onClick={() => addItem(BLOCK_TYPE.TEXT)}>
 										Add List Item
 									</Button>
 								</div>
@@ -311,33 +282,25 @@ export default function ConfigEditor({ docDef, onChange }: { docDef: any; onChan
 				</Button>
 			</div>
 
-			<ReactSortable
-				list={docDef?.content}
-				setList={(uplist) => {
-					updateDocDef("content", uplist);
-				}}
-				className="space-y-4"
-			>
-				{docDef?.content.map((ele: any, idx: number) => {
-					const renderBlock = () => {
-						if (ele.hasOwnProperty("text")) {
-							return handleTextRendering(ele, (newVal) => updateDocDefContent(idx, newVal));
-						}
-
-						if (ele.hasOwnProperty("ul") || ele.hasOwnProperty("ol")) {
-							return handleUlRendering(ele, (newVal) => updateDocDefContent(idx, newVal));
-						}
-
+			{docDef?.content.map((ele: any, idx: number) => {
+				const renderBlock = () => {
+					if (ele.hasOwnProperty("text")) {
 						return handleTextRendering(ele, (newVal) => updateDocDefContent(idx, newVal));
-					};
+					}
 
-					return (
-						<div key={idx} className="rounded-md border bg-muted/30 p-4 shadow-sm">
-							{renderBlock()}
-						</div>
-					);
-				})}
-			</ReactSortable>
+					if (ele.hasOwnProperty("ul") || ele.hasOwnProperty("ol")) {
+						return handleUlRendering(ele, (newVal) => updateDocDefContent(idx, newVal));
+					}
+
+					return handleTextRendering(ele, (newVal) => updateDocDefContent(idx, newVal));
+				};
+
+				return (
+					<div key={idx} className="rounded-md border bg-muted/30 p-4 shadow-sm">
+						{renderBlock()}
+					</div>
+				);
+			})}
 
 			<Separator />
 			<h2 className="scroll-m-20 border-b pb-2 text-3xl font-semibold tracking-tight first:mt-0">Styles</h2>
